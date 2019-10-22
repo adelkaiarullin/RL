@@ -50,7 +50,7 @@ if __name__ == '__main__':
     batch_size = 10
     counter = 0
 
-    for i_episode in range(1000):
+    for i_episode in range(2000):
         print('Episode {}'.format(i_episode))
         R = 0
         Rtg = []

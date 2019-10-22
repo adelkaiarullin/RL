@@ -5,7 +5,6 @@ import gym
 from vpg import AgentNet
 
 
-
 if __name__ == '__main__':
     env = gym.make('CartPole-v1')
     net = torch.load('rlnet.pt', map_location='cpu')
@@ -16,7 +15,6 @@ if __name__ == '__main__':
     fps = 10
     out = cv.VideoWriter('outpy.mp4', writer, fps , (frame_width,frame_height))
     font = cv.FONT_HERSHEY_SIMPLEX
-
 
     #random sampling
     for i_episode in range(20):
