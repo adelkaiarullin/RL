@@ -3,7 +3,6 @@ from torch import nn
 import gym
 
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
