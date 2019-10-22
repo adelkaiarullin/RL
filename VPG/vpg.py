@@ -10,17 +10,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class AgentNet(nn.Module):
     def __init__(self):
         super(AgentNet, self).__init__()
-        self.layers = nn.Sequential(nn.Linear(4, 18), nn.ReLU(), nn.Linear(18, 18), nn.ReLU(), 
-                        nn.Linear(18, 2), nn.Softmax())
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-class AdvantageNet(nn.Module):
-    def __init__(self):
-        super(AdvantageNet, self).__init__()
-        self.layers = nn.Sequential(nn.Linear(4, 18), nn.ReLU(), nn.Linear(18, 18), nn.ReLU(), nn.Linear(18, 1))
+        self.layers = nn.Sequential(nn.Linear(4, 18), nn.SELU()
+                    ,nn.Linear(18, 18), nn.SELU(), nn.Linear(18, 2), nn.Softmax())
 
     def forward(self, x):
         return self.layers(x)
@@ -30,10 +21,6 @@ if __name__ == '__main__':
     agent = AgentNet()
     optimizer_ag = torch.optim.Adam(agent.parameters(), lr=1e-3)
     agent.to(device)
-
-    advantage = AdvantageNet()
-    optimizer_ad = torch.optim.Adam(advantage.parameters(), lr=1e-1)
-    advantage.to(device)
     
     env = gym.make('CartPole-v1')
 
@@ -59,31 +46,27 @@ if __name__ == '__main__':
     history_r = []
     history_l = []
     history_s = []
-    history_ad_loss = []
     logprob = 0
     mse = 0
     batch_size = 10
     counter = 0
 
-    for i_episode in range(10000):
+    for i_episode in range(1000):
         print('Episode {}'.format(i_episode))
         R = 0
         Rtg = []
-        advan_val = []
         LogProb = []
         observation = env.reset()
-        for t in range(5000):
+        for t in range(200):
             #env.render()
             #action = env.action_space.sample()
             obs = torch.tensor(observation.reshape(1, 4), dtype=torch.float32, device=device)
-            value = advantage.forward(obs)[0]
             pred = agent.forward(obs)[0]
             index = torch.multinomial(pred, 1)[0]
-            #print(index, pred, pred[index])
+            # print(index, pred, pred[index])
             observation, reward, done, info = env.step(index.cpu().numpy())
 
             R += reward
-            advan_val.append(value - R)
             Rtg.append(R)
             LogProb.append(-torch.log(pred[index]))
             
@@ -96,34 +79,26 @@ if __name__ == '__main__':
                 break
 
         Rtg.reverse()
-        advan_val.reverse()
-        for p, ad, r in zip(LogProb, advan_val, Rtg):
-            #logprob += r * torch.exp(-ad.detach()**2) * p
+        for p, r in zip(LogProb, Rtg):
             logprob += r * p
-            mse += ad**2/(t+1)
-        
 
         if counter % batch_size == 0:
-            mse /= batch_size
             logprob /= batch_size
             optimizer_ag.zero_grad()
             logprob.backward()
             optimizer_ag.step()
             history_l.append(logprob.item())
-            optimizer_ad.zero_grad()
-            mse.backward()
-            optimizer_ad.step()
-            #print('MSE Loss {}'.format(mse.item()))
-            history_ad_loss.append(mse.item())
             mse = 0
             logprob = 0
+            LogProb.clear()
+            Rtg.clear()
 
     agent.eval()
     torch.save(agent, 'rlnet.pt')
 
     for i_episode in range(20):
         observation = env.reset()
-        for t in range(1000):
+        for t in range(200):
             env.render()
             # action = env.action_space.sample()
             obs = torch.tensor(observation.reshape(1, 4), dtype=torch.float32, device=device)
@@ -148,5 +123,4 @@ if __name__ == '__main__':
     plt.subplot('133')
     plt.title('Loss')
     plt.plot(range(len(history_l)), history_l)
-    plt.plot(range(len(history_ad_loss)), history_ad_loss)
     plt.show()
